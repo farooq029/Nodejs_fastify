@@ -1,51 +1,46 @@
-var fastify = require("fastify");
-var { Client } = require("pg");
+const cheerio = require("cheerio");
+const fs = require("fs");
+const clipboardy = require("clipboardy");
 
-const server = fastify({ logger: true });
-const client = new Client({
-  connectionString: process.env.secureString
-});
+const text = fs.readFileSync(__dirname + "/../files/Test A 01.html").toString();
+const $ = cheerio.load(text);
 
-server.get("/", async (request, reply) => {
-  const result = await client.query("SELECT *FROM todo");
-  reply.send(result.rows);
-});
+const newDocument = $("<div>");
 
-server.get("/like", async (request, reply) => {
-  const result = await client.query("SELECT *FROM todo WHERE text LIKE 'b%'");
-  reply.send(result.rows);
-});
+function pushQuestion(quest, ans) {
+  const container = $("<div>");
 
-server.get("/order", async (request, reply) => {
-  const result = await client.query("SELECT *FROM todo ORDER BY text DESC");
-  reply.send(result.rows);
-});
+  quest.appendTo(container);
+  ans.appendTo(container);
 
-server.post("/", async (request, reply) => {
-  const sql = "INSERT INTO todo (text) VALUES ($1)";
-  const values = [request.body.text];
-  const result = await client.query(sql, values);
-  //   const result = await client.query(
-  // );
-  reply.send(result);
-});
+  newDocument.append(container);
 
-server.delete("/:id", async (request, reply) => {
-  // const sql = "DELETE FROM todo WHERE id=$id";
-  // const values = [request.body.text];
-  // console.log($id);
-  const result = await client.query(
-    `DELETE FROM todo WHERE id = ${request.params.id}`
-  );
-  reply.send(result);
-});
+  $("<hr>").appendTo(container);
+}
 
-server.put("/", async (request, reply) => {
-  const result = await client.query(
-    `UPDATE todo SET text = 'hello' WHERE id = ${request.params.id}`
-  );
-  reply.send(result);
-});
+for (let path of fs.readdirSync(__dirname + "/../files")) {
+  let text = fs.readFileSync(__dirname + "/../files/" + path);
+  let $ = cheerio.load(text);
 
-server.listen(8080);
-client.connect();
+  let i = 1;
+
+  while (
+    $(`#div${i} div:nth-child(2) div:nth-child(1) span:nth-child(3)`).length > 0
+  ) {
+    const quest = $(
+      `#div${i} div:nth-child(2) div:nth-child(1) span:nth-child(3)`
+    );
+    const ans = $(`#div${i} div:nth-child(2) div:nth-child(2)`);
+
+    i++;
+
+    pushQuestion(quest, ans);
+  }
+}
+
+const styling =
+  "<style>.rightanswer { color: green } .hidden { display: none }</style>";
+
+clipboardy.writeSync(styling + newDocument);
+
+fs.writeFileSync(__dirname + "/../answers.html", styling + newDocument.html());
